@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Live Dhaka jam & waterlogging map — see which roads are passable before you leave.">
+  <title>Jam Radar — ঢাকার লাইভ জ্যাম ও জলাবদ্ধতার ম্যাপ</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">🌊</span>
+      <div>
+        <h1>Jam Radar</h1>
+        <p id="pitch">ঢাকার লাইভ জ্যাম ও জলাবদ্ধতার ম্যাপ — বের হওয়ার আগে দেখে নিন কোন রাস্তা চলাচলের উপযোগী।</p>
+      </div>
+    </div>
+    <button id="langToggle" class="lang-btn" type="button" aria-label="Switch language">English</button>
+  </header>
+
+  <main>
+    <!-- Seed-data notice: never present seed as live. -->
+    <div class="seed-notice" id="seedNotice" role="note"></div>
+
+    <!-- Live summary bar -->
+    <section class="summary" aria-label="Live summary">
+      <div class="stat"><strong id="statTotal">–</strong><span id="statTotalLabel">রিপোর্ট</span></div>
+      <div class="stat"><strong id="statWater">–</strong><span id="statWaterLabel">জলাবদ্ধতা</span></div>
+      <div class="stat"><strong id="statJam">–</strong><span id="statJamLabel">জ্যাম</span></div>
+      <div class="stat"><strong id="statAvoid">–</strong><span id="statAvoidLabel">এড়িয়ে চলুন</span></div>
+    </section>
+
+    <!-- Filters -->
+    <section class="filters" aria-label="Filters">
+      <div class="filter-group" id="typeFilters" role="group" aria-label="Type">
+        <button type="button" class="chip active" data-type="all" id="chipAll">সব</button>
+        <button type="button" class="chip" data-type="waterlogging" id="chipWater">💧 জলাবদ্ধতা</button>
+        <button type="button" class="chip" data-type="jam" id="chipJam">🚗 জ্যাম</button>
+      </div>
+      <div class="filter-row">
+        <label class="select-wrap">
+          <span id="areaLabel">এলাকা</span>
+          <select id="areaFilter">
+            <option value="all">সব এলাকা</option>
+          </select>
+        </label>
+        <label class="select-wrap">
+          <span id="severityLabel">তীব্রতা</span>
+          <select id="severityFilter">
+            <option value="all">সব তীব্রতা</option>
+            <option value="1">১ — হালকা</option>
+            <option value="2">২ — মাঝারি</option>
+            <option value="3">৩ — চলাচল অসম্ভব</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <!-- Map -->
+    <section class="map-wrap">
+      <div id="map" aria-label="Dhaka map"></div>
+      <div id="mapLoading" class="map-loading">ম্যাপ লোড হচ্ছে…</div>
+      <button id="reportHereBtn" class="report-btn" type="button">📍 <span id="reportHereLabel">এখানে রিপোর্ট করুন</span></button>
+      <p class="map-hint" id="mapHint">ম্যাপে ট্যাপ করে লোকেশন বেছে রিপোর্ট করুন</p>
+    </section>
+
+    <!-- Area summary: passable / avoid per area -->
+    <section class="areas">
+      <h2 id="areasTitle">এলাকা অনুযায়ী অবস্থা</h2>
+      <ul id="areaList" class="area-list"></ul>
+      <p id="areaEmpty" class="empty hidden">এখনো কোনো রিপোর্ট নেই — আপনিই প্রথম রিপোর্ট করুন।</p>
+    </section>
+
+    <!-- Legend -->
+    <section class="legend">
+      <h2 id="legendTitle">রঙের মানে</h2>
+      <ul>
+        <li><span class="dot dot-w1"></span><span data-i18n="legendW1">জলাবদ্ধতা — হালকা (গোড়ালি)</span></li>
+        <li><span class="dot dot-w2"></span><span data-i18n="legendW2">জলাবদ্ধতা — মাঝারি (হাঁটু)</span></li>
+        <li><span class="dot dot-w3"></span><span data-i18n="legendW3">জলাবদ্ধতা — চলাচল অসম্ভব</span></li>
+        <li><span class="dot dot-j1"></span><span data-i18n="legendJ1">জ্যাম — ধীর</span></li>
+        <li><span class="dot dot-j2"></span><span data-i18n="legendJ2">জ্যাম — ভারী</span></li>
+        <li><span class="dot dot-j3"></span><span data-i18n="legendJ3">জ্যাম — আটকে আছে</span></li>
+      </ul>
+      <p class="expiry-note" id="expiryNote">রিপোর্ট ৩ ঘণ্টা পর মেয়াদোত্তীর্ণ হয়।</p>
+    </section>
+  </main>
+
+  <footer>
+    <p id="footerText">Jam Radar — Arohon Build for Bangladesh। আপনার রিপোর্ট শুধু আপনার ব্রাউজারেই থাকে, কোনো অ্যাকাউন্ট লাগে না।</p>
+  </footer>
+
+  <!-- Report form: bottom sheet on mobile -->
+  <div id="sheetBackdrop" class="sheet-backdrop hidden"></div>
+  <section id="reportSheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <h2 id="sheetTitle">রিপোর্ট করুন</h2>
+    <p class="sheet-loc" id="sheetLoc">লোকেশন: ম্যাপের মাঝখান</p>
+
+    <fieldset>
+      <legend id="typeLegend">কী দেখছেন?</legend>
+      <div class="seg" id="typeSeg">
+        <button type="button" class="seg-btn active" data-value="waterlogging">💧 জলাবদ্ধতা</button>
+        <button type="button" class="seg-btn" data-value="jam">🚗 জ্যাম</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend id="severityLegend">তীব্রতা কত?</legend>
+      <div class="seg seg-3" id="severitySeg">
+        <button type="button" class="seg-btn active" data-value="1" id="sev1">১ · হালকা</button>
+        <button type="button" class="seg-btn" data-value="2" id="sev2">২ · মাঝারি</button>
+        <button type="button" class="seg-btn" data-value="3" id="sev3">৩ · অসম্ভব</button>
+      </div>
+      <p class="seg-hint" id="severityHint">জলাবদ্ধতা: গোড়ালি / হাঁটু / চলাচল অসম্ভব</p>
+    </fieldset>
+
+    <label class="note-label" for="noteInput" id="noteLabel">সংক্ষিপ্ত নোট (ঐচ্ছিক)</label>
+    <input id="noteInput" type="text" maxlength="120" placeholder="যেমন: মিরপুর ১০-এ হাঁটু পানি">
+
+    <div class="sheet-actions">
+      <button id="cancelReport" class="btn btn-ghost" type="button">বাতিল</button>
+      <button id="submitReport" class="btn btn-primary" type="button">রিপোর্ট পাঠান</button>
+    </div>
+  </section>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
